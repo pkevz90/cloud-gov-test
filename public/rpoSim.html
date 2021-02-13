@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <script src="./SupportLibraries/math.min.js"></script>
+    <script src="./SupportLibraries/vue.js"></script>
+    <script src="./SupportLibraries/jquery.min.js"></script>
+    <script src="./SupportLibraries/jquery.mousewheel.min.js"></script>
+    <title>RPO Simulator</title>
+    <link rel="stylesheet" type="text/css" href="css/rpoSim.css">
+
+</head>
+
+
+<body class="noselect">
+    <div id="main-app">
+        <div id="data-container">
+            <div class="player-data" v-for="player in players" v-if="player.exist" v-bind:style="{color: player.color}" @mouseleave="player.focus = false">
+                <div @mouseover="player.focus = true" :title="player.burnTip">
+                    <span style="font-size:2em">{{ player.name.toUpperCase() }}</span> 
+                    <span v-if="scenario_data.game_started">{{ player.burn_total.toFixed(2) }} m/s</span><input type="radio" name="player" :value="player.name">
+                </div>
+                <div v-if="scenario_data.game_started && player.focus" style="max-height: 350px; overflow-y: scroll; overflow-x: hidden">
+                    <input title="Trajectory Line Thickness" type="range" step="0.1" min="0.1" max="10" class="slider" style="width: 100%;" v-model.number="player.display.thickness">
+                    <input title="Trajectory Line Opacity" type="range" step="0.01" min="0" max="1" class="slider" style="width: 100%;" v-model.number="player.display.opacity">
+                    <input title="Burn Point Size" type="range" step="0.01" min="0" max="10" class="slider" style="width: 100%;" v-model.number="player.display.point">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Radial</th>
+                                <th>In-Track</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="2"><u>Current Position</u></td>
+                            </tr>
+                            <tr>
+                                <td>{{ player.current_state[0].toFixed(2) }} km</td>
+                                <td>{{ player.current_state[1].toFixed(2) }} km</td>
+                            </tr>
+                            <tr>
+                                <td colspan="2"><u>Burns</u></td>
+                            </tr>
+                            <tr v-for="burn in player.burns">
+                                <td>{{ burn[0].toFixed(2) }} m/s</td>
+                                <td>{{ burn[1].toFixed(2) }} m/s</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div v-if="scenario_data.game_started && scenario_data.player === 'referee'">
+                    <input type="number" min="0" max="100" value="0" v-model.Number="scenario_data.playerFail[player.name]">
+                    <button class="start-button slow" @click="setPlayerFail(player.name)" style="font-size: 0.5em; padding: 2%">Update Fail Rate</button>
+                </div>
+                <div v-if="!scenario_data.game_started">
+                    <div>Ae <input type="Number" min="0" v-model.Number="player.initial_state[0]" @input="initialChange(player.name)"> km</div>
+                    <div>R <input type="Number" v-model.Number="player.initial_state[1]" @input="initialChange(player.name)"> km</div>
+                    <div>I <input type="Number" v-model.Number="player.initial_state[2]" @input="initialChange(player.name)"> km</div>
+                    <div>&#946 <input type="Number" v-model.Number="player.initial_state[3]" @input="initialChange(player.name)"> deg</div>
+                    <div title="Maximum total fuel over entire scenario">Fuel <input type="Number" min="0" v-model.Number="player.scenario_fuel"> m/s</div>
+                    <div title="Maximum fuel usage per scenario turn">Fuel/Turn <input type="Number" min="0" v-model.Number="player.turn_fuel"> m/s</div>
+                    <div title="Standard Deviation of Burn Magnitude,&#10;based on percentage of burn magnitude">Burn Mag &#963 <input type="Number" min="0" max="10" step="0.1" v-model.Number="player.uncertainty.magnitude"> %</div>
+                    <div title="Standard Deviation of Burn Direction">Burn Az &#963 <input type="Number" min="0" max="25" step="0.1" v-model.Number="player.uncertainty.direction"> deg</div>
+                    <div title="Chance burn command is not successful">Comm Failure <input type="Number" min="0" max="25" step="0.1" v-model.Number="player.uncertainty.failure"> %</div>
+                </div>
+            </div>
+            <div v-if="active_players.length < 4 && !scenario_data.game_started" @click="add_player"
+                style="position: relative; height: 300px;"><span class="slow" id="add-sat-button">+</span></div>
+        </div>
+        <div id="game-data-container" style="display: none;">
+            <div @click="display_data.rangeExtended = !display_data.rangeExtended" class="pointer"><span class="left-float">Range</span> <span
+                    class="right-float">{{ scenario_data.sat_data.data.range.toFixed(2) }} km</span></div>
+            <br>
+            <div v-if="display_data.rangeExtended"><span class="left-float">R Rate</span> <span
+                class="right-float">{{ scenario_data.sat_data.data.range_rate.toFixed(2) }} m/s</span></div>
+            <br v-if="display_data.rangeExtended">
+            <div v-if="display_data.rangeExtended"><span class="left-float">Radial</span> <span
+                class="right-float">{{ scenario_data.sat_data.data.relative[0].toFixed(2) }} km</span></div>
+            <br v-if="display_data.rangeExtended">
+            <div v-if="display_data.rangeExtended"><span class="left-float">IT</span> <span
+                class="right-float">{{ scenario_data.sat_data.data.relative[1].toFixed(2) }} km</span></div>
+            <br v-if="display_data.rangeExtended">
+            <div><span class="left-float">CATS</span> <span
+                    class="right-float">{{ scenario_data.sat_data.data.cats.toFixed(2) }} deg</span></div>
+            <br v-if="display_data.rangeExtended">
+            <div><span class="left-float">Time</span> <span
+                    class="right-float">+{{ scenario_data.game_time_string }}</span></div>
+        </div>
+        <div style="width:100%; height:100%;">
+            <canvas id="main-canvas" width="100%" height="100%"></canvas>
+        </div>
+        <div id="time-slider" style="display: none;">
+            <input type="range" step="0.00001" min="0" :max="scenario_data.scenario_length" value="0" class="slider"
+                class="slider" @input="slider_change" @mousedown="slider_click(false)" @mouseup="slider_click(true)">
+        </div>
+        <div class="setup-zone">
+            <div title="Length of scenario in hours">
+                Scenario Length <input @input="initialChange('all')" type="number" value="30" min="5" v-model.number="scenario_data.scenario_length">
+            </div>
+            <div title="Number of burns per player">
+                # Burns <input type="number" min="1" v-model.Number="scenario_data.burns_per_player"
+                    @input="changeNumBurns">
+            </div>
+            <div title="Measured clockwise in radians from positive radial">
+                Initial Sun <input @input="initialChange('all')" type="number" step="1" v-model.number="scenario_data.init_sun_angl">
+            </div>
+            <div class="slow" id="start-game" @click="startScreenClick">
+                Start
+            </div>
+        </div>
+        <div class="slow" id="turn-button" @click="turn_button_click" style="display: none;" v-if="scenario_data.server">
+            <span v-if="scenario_data.player === 'referee'">Refresh</span>
+            <span v-if="scenario_data.player !== 'referee'">Turn {{scenario_data.turnTime === 0 ? scenario_data.turn: (scenario_data.turnTime / 1000).toFixed() + 's'}}</span>
+        </div>
+        <div class="start-game-div" style="display: none;">
+            <div>
+                <span style="font-size: 3vw; color: white;">Start Server</span>
+                <div>
+                    <input type="text" placeholder="Server Name" id="game-name" autocomplete="off">
+                </div>
+                <div>
+                    <input type="number" placeholder="Turn Limit (s)" id="turn-time" min="0">
+                </div>
+                <div>
+                    <button id="start-server" class="start-button slow" @click="startScreenClick">Start Server</button>
+                </div>
+            </div>
+            <div>
+                <span style="font-size: 3vw; color: white;">Join Server</span>
+                <div v-if="scenario_data.updating">
+                    Updating....
+                </div>
+                <div>
+                    <select id="join-game" @change="chosenGameChange">
+                        <option value="default" disabled selected>Join Game</option>
+                        <option :value="game._id" v-for="game in games">{{ game.name }}</option>
+                    </select>
+                </div>
+                <div>
+                    <select id="team-select">
+                        <option value="referee">Referee</option>
+                        <option :value="player" v-for="player in chosenGamePlayers">{{ player.toUpperCase() }}</option>
+                    </select>
+                </div>
+                <!-- <div>
+                    <input type="password" placeholder="Password">
+                </div> -->
+                <div>
+                    <button id="start-refresh" class="start-button slow" @click="startScreenClick">Refresh</button>
+                    <button id="start-join" class="start-button slow" @click="startScreenClick">Join</button>
+                    <button id="start-duplicate" class="start-button slow" @click="startScreenClick">Duplicate</button>
+                    <button id="start-delete" class="start-button slow" @click="startScreenClick">Delete</button>
+                </div>
+            </div>
+            <div>
+                <span style="font-size: 3vw; color: white;">Offline</span>
+                <div>
+                    <button id="start-offline" class="start-button slow" @click="startScreenClick">Start Offline</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="./js/rpoSim.js"></script>
+
+</body>
+
+</html>

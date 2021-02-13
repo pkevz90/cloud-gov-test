@@ -1,6 +1,6 @@
 ---
 applications:
-- name: cf-nodejs
+- name: rpo-sim
   memory: 512M
   instances: 1
-  random-route: true
+  random-route: false
