@@ -41,10 +41,6 @@ class Player {
 var main_app = new Vue({
     el: "#main-app",
     data: {
-        // fetchURL: 'http://localhost:5000/first-firebase-app-964fe/us-central1/app',
-        // fetchURL: 'https://us-central1-first-firebase-app-964fe.cloudfunctions.net/app',
-//         fetchURL: 'https://rposimapi.glitch.me/',
-        fetchURL: 'https://cf-nodejs-silly-koala-ay.app.cloud.gov',
         games: [],
         chosenGamePlayers: [],
         players: {
@@ -253,7 +249,7 @@ var main_app = new Vue({
                 burns: burnData,
                 turn: this.scenario_data.turn
             };
-            let response = await fetch(this.fetchURL + '/update/' + this.scenario_data.gameId + '/' + this.scenario_data.player, {
+            let response = await fetch('/api/update/' + this.scenario_data.gameId + '/' + this.scenario_data.player, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -310,7 +306,7 @@ var main_app = new Vue({
                         name: $('#game-name').val()
                     }
                     this.scenario_data.player = 'referee';
-                    let responsePost = await fetch(this.fetchURL + '/new', {
+                    let responsePost = await fetch('/api/new', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -325,14 +321,14 @@ var main_app = new Vue({
                 case 'start-refresh':
                     // GET request for current games
                     this.scenario_data.updating = true;
-                    let response = await fetch(this.fetchURL + '/games');
+                    let response = await fetch('/api/games');
                     response = await response.json();
                     this.games = response;
                     this.scenario_data.updating = false;
                     break;
                 case 'start-duplicate':
                 case 'start-join':
-                    let responseJoin = await fetch(this.fetchURL + '/games/' + $('#join-game').val());
+                    let responseJoin = await fetch('/api/games/' + $('#join-game').val());
 
                     responseJoin = await responseJoin.json();
                     let playerJoin = responseJoin.players.filter(player => {
@@ -372,7 +368,7 @@ var main_app = new Vue({
                     }
                     break;
                 case 'start-delete':
-                    await fetch(this.fetchURL + '/' + $('#join-game').val(), {
+                    await fetch('api/' + $('#join-game').val(), {
                         method: 'DELETE'
                     });
                     this.games = this.games.filter(game => game._id !== $('#join-game').val());
@@ -463,7 +459,7 @@ var main_app = new Vue({
                 }
                 return;
             }
-            let responseInt = await fetch(this.fetchURL + '/games/' + this.scenario_data.gameId);
+            let responseInt = await fetch('/api/games/' + this.scenario_data.gameId);
             responseInt = await responseInt.json();
             this.scenario_data.opposingTurn = math.min(responseInt.players.map(player => {
                 return player.turn;
@@ -504,7 +500,7 @@ var main_app = new Vue({
                 player: player,
                 failRate: this.scenario_data.playerFail[player]
             };
-            let response = await fetch(this.fetchURL + '/referee/' + this.scenario_data.gameId, {
+            let response = await fetch('/api/referee/' + this.scenario_data.gameId, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1058,7 +1054,7 @@ for (player in main_app.players) {
     main_app.players[player].burns = math.zeros(main_app.scenario_data.burns_per_player, 2)._data;
 }
 main_app.scenario_data.updating = true;
-fetch(main_app.fetchURL + '/games').then(res => res.json()).then(res => {
+fetch('/api/games').then(res => res.json()).then(res => {
     main_app.games = res;
     main_app.scenario_data.updating = false; 
 }).catch(err => alert("Server blocked, contact the 533 TRS for support"))
