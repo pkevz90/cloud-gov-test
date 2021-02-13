@@ -4,7 +4,13 @@ const morgan = require('morgan');
 const mongoose = require('mongoose');
 require('dotenv').config();
 const cookieParser = require('cookie-parser');
+
+const commentModel = require('./public/models/comments');
+const gameModel = require('./public/models/games');
+const userModel = require('./public/models/users');
+
 const app = express();
+
 async function passwordMaker(pass) {
   pass = await bcrypt.hash(pass,12);
   console.log(pass)
@@ -50,85 +56,9 @@ mongoose.connect(
     useNewUrlParser: true,
     useUnifiedTopology: true
   }
-);
+).then(() => console.log('Database connected @ ' + new Date())).catch(err => console.log('Error Connecting Database ' + err));
 
-const gameModel = mongoose.model(
-  "Game",
-  new mongoose.Schema({
-    name: {
-      type: String,
-      default: "Game"
-    },
-    scenarioConditions: {
-      initSun: {
-        type: Number,
-        default: 45
-      },
-      gameLength: {
-        type: Number,
-        default: 48
-      },
-      nBurns: {
-        type: Number,
-        default: 24
-      },
-      turnLength: {
-        type: Number,
-        default: 0
-      }
-    },
-    players: [
-      {
-        name: {
-          type: String,
-          required: true
-        },
-        initState: [Number],
-        fuel: Number,
-        turn_fuel: Number,
-        range: Number,
-        cats: [Number],
-        burns: [[Number]],
-        turn: Number,
-        burnFailure: {
-          type: Number,
-          default: 0
-        }
-      }
-    ]
-  })
-);
 
-const commentModel = mongoose.model(
-  "Comment",
-  new mongoose.Schema({
-    date: {
-      type: Date,
-      default: Date.now()
-    },
-    content: {
-      type: "String",
-      required: true
-    },
-    package: {
-      type: "String"
-    }
-  })
-);
-
-const userModel = mongoose.model(
-  'User', 
-  new mongoose.Schema({
-    username: {
-      type: String,
-      required: true
-    },
-    password: {
-      type: String,
-      required: true
-    }
-  })
-);
 // Get list of all games
 app.get("/games", async (req, res) => {
   if (!req.signedCookies.id) {
@@ -259,5 +189,5 @@ app.put("/referee/:id", async (req, res) => {
 
 
 app.listen(process.env.PORT || 4000, () => {
-  console.log('server started');
+  console.log('Server started @ ' + new Date());
 });
