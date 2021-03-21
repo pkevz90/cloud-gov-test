@@ -99,7 +99,20 @@ var main_app = new Vue({
             stars: math.random([100, 3], -0.5, 0.5),
             update_time: true,
             transition: false,
-            rangeExtended: false
+            rangeExtended: false,
+            center_object: {
+                blue: 0,
+                red: 0,
+                green: 0,
+                gray: 0,
+                curOffset: []
+            },
+            center_object_des: {
+                blue: 0,
+                red: 0,
+                green: 0,
+                gray: 0
+            }
         }
     },
     computed: {
@@ -124,7 +137,7 @@ var main_app = new Vue({
             this.display_data.width = cnvs.width;
             ctx.clearRect(0, 0, cnvs.width, cnvs.height);
             drawStars(cnvs, ctx);
-            drawAxes(cnvs, ctx, this.display_data.center, this.display_data.axis_limit);
+            drawAxes(cnvs, ctx, this.display_data.center, this.display_data.axis_limit); 
             // Calculate Player Burns
             let calcBurns;
             for (sat in this.players) {
@@ -150,12 +163,26 @@ var main_app = new Vue({
                     this.players[sat].current_state = calcCurrentPoint(this.scenario_data.game_time, sat);
                 }
             }
+            curOffset = [0,0];
+            try {
+                curOffset = math.add(curOffset, [main_app.players.blue.current_state[0] * main_app.display_data.center_object.blue, main_app.players.blue.current_state[1] * main_app.display_data.center_object.blue]);
+                curOffset = math.add(curOffset, [main_app.players.red.current_state[0] * main_app.display_data.center_object.red, main_app.players.red.current_state[1] * main_app.display_data.center_object.red]);
+                if (main_app.players.green.exist) {
+                    curOffset = math.add(curOffset, [main_app.players.green.current_state[0] * main_app.display_data.center_object.green, main_app.players.green.current_state[1] * main_app.display_data.center_object.green]);
+                }
+                if (main_app.players.gray.exist) {
+                    curOffset = math.add(curOffset, [main_app.players.gray.current_state[0] * main_app.display_data.center_object.gray, main_app.players.gray.current_state[1] * main_app.display_data.center_object.gray]);
+                }
+            }
+            catch (e) {
+
+            }
             // Draw Sun
             let sunPos;
             if (this.scenario_data.sat_data.target === null) {
                 sunPos = [0, 0];
             } else {
-                sunPos = this.players[this.scenario_data.sat_data.target].current_state || [0, 0];
+                sunPos = math.subtract(this.players[this.scenario_data.sat_data.target].current_state.slice(0,2), curOffset) || [0, 0];
             }
             drawArrow(ctx, getScreenPixel(cnvs, sunPos[0], sunPos[1], this.display_data.axis_limit, this.display_data.center), 135, -this.scenario_data.init_sun_angl * Math.PI / 180 + 2 * Math.PI / 86164 * this.scenario_data.game_time * 3600, 'rgba(150,150,50,1)', 9);
             if (this.scenario_data.game_started) {
@@ -188,8 +215,9 @@ var main_app = new Vue({
             }
             // Draw satellite picture at current position for players that exist
             for (sat in this.players) {
+                
                 if (this.players[sat].exist) {
-                    drawSatShape(ctx, getScreenPixel(cnvs, this.players[sat].current_state[0], this.players[sat].current_state[1], this.display_data.axis_limit, this.display_data.center), this.players[sat].angle, 0.25, this.players[sat].color);
+                    drawSatShape(ctx, getScreenPixel(cnvs, this.players[sat].current_state[0] - curOffset[0], this.players[sat].current_state[1] - curOffset[1], this.display_data.axis_limit, this.display_data.center), this.players[sat].angle, 0.25, this.players[sat].color);
                 }
             }
             calcData(this.scenario_data.sat_data.origin, this.scenario_data.sat_data.target)
@@ -605,6 +633,20 @@ function getScreenPoint(x, y, limit, center, object = false) {
 }
 
 function drawAnimations(cnvs, ctx, center, limit) {
+    curOffset = [0,0];
+    try {
+        curOffset = math.add(curOffset, [main_app.players.blue.current_state[0] * main_app.display_data.center_object.blue, main_app.players.blue.current_state[1] * main_app.display_data.center_object.blue]);
+        curOffset = math.add(curOffset, [main_app.players.red.current_state[0] * main_app.display_data.center_object.red, main_app.players.red.current_state[1] * main_app.display_data.center_object.red]);
+        if (main_app.players.green.exist) {
+            curOffset = math.add(curOffset, [main_app.players.green.current_state[0] * main_app.display_data.center_object.green, main_app.players.green.current_state[1] * main_app.display_data.center_object.green]);
+        }
+        if (main_app.players.gray.exist) {
+            curOffset = math.add(curOffset, [main_app.players.gray.current_state[0] * main_app.display_data.center_object.gray, main_app.players.gray.current_state[1] * main_app.display_data.center_object.gray]);
+        }
+    }
+    catch (e) {
+
+    }
     // Draw Line showing data origin and target
     let line_origin = main_app.players[main_app.scenario_data.sat_data.origin].current_state || [0, 0],
         line_end;
@@ -612,9 +654,9 @@ function drawAnimations(cnvs, ctx, center, limit) {
         line_end = main_app.scenario_data.mousemove_location;
     } else {
         line_end = main_app.players[main_app.scenario_data.sat_data.target].current_state || [0, 0];
-        line_end = getScreenPixel(cnvs, line_end[0], line_end[1], limit, center);
+        line_end = getScreenPixel(cnvs, line_end[0] - curOffset[0], line_end[1] - curOffset[1], limit, center);
     }
-    line_origin = getScreenPixel(cnvs, line_origin[0], line_origin[1], limit, center);
+    line_origin = getScreenPixel(cnvs, line_origin[0] - curOffset[0], line_origin[1] - curOffset[1], limit, center);
     ctx.strokeStyle = 'rgba(200,200,200,0.7)';
     ctx.lineWidth = 3;
     ctx.setLineDash([2, 10]);
@@ -726,9 +768,30 @@ function drawAxes(cnvs, ctx, center, limit) {
 
 function drawSatData(ctx, cnvs, sat) {
     // Draw trajectory of satellite
-    let points = sat.traj.map(point => {
-        return getScreenPixel(cnvs, point[0][0], point[1][0], main_app.display_data.axis_limit, main_app.display_data.center, true);
+    if (sat.name === 'blue') {
+        main_app.display_data.center_object.curOffset = [];
+    }
+    // let t1 = performance.now();
+    let points = sat.traj.map((point, ii) => {
+        let offset;
+        if (sat.name === 'blue') {
+            offset = [main_app.players.blue.traj[ii][0][0] * main_app.display_data.center_object.blue, main_app.players.blue.traj[ii][1][0] * main_app.display_data.center_object.blue];
+            offset = math.add(offset, [main_app.players.red.traj[ii][0][0] * main_app.display_data.center_object.red, main_app.players.red.traj[ii][1][0] * main_app.display_data.center_object.red]);
+            if (main_app.players.green.exist) {
+                offset = math.add(offset, [main_app.players.green.traj[ii][0][0] * main_app.display_data.center_object.green, main_app.players.green.traj[ii][1][0] * main_app.display_data.center_object.green]);
+            }
+            if (main_app.players.gray.exist) {
+                offset = math.add(offset, [main_app.players.gray.traj[ii][0][0] * main_app.display_data.center_object.gray, main_app.players.gray.traj[ii][1][0] * main_app.display_data.center_object.gray]);
+            }
+            main_app.display_data.center_object.curOffset[ii] = offset;
+        }
+        else {
+            offset = main_app.display_data.center_object.curOffset[ii];
+        }
+        return getScreenPixel(cnvs, point[0][0] - offset[0], point[1][0] - offset[1], main_app.display_data.axis_limit, main_app.display_data.center, true);
     })
+    // let t2 = performance.now();
+    // console.log(t2-t1);
     ctx.globalAlpha = sat.display.opacity;
     for (let ii = 1; ii < points.length - 1; ii += main_app.scenario_data.nodes) {
         ctx.strokeStyle = 'rgba(30, 30, 50)';
@@ -766,8 +829,16 @@ function drawSatData(ctx, cnvs, sat) {
     let burn_turn = main_app.scenario_data.server ? main_app.scenario_data.turn : Number(main_app.scenario_data.game_time) / main_app.turn_length;
     sat.burn_points.forEach((point, ii) => {
         if (ii >= burn_turn) {
+            offset = [main_app.players.blue.burn_points[ii][0][0] * main_app.display_data.center_object.blue, main_app.players.blue.burn_points[ii][1][0] * main_app.display_data.center_object.blue];
+            offset = math.add(offset, [main_app.players.red.burn_points[ii][0][0] * main_app.display_data.center_object.red, main_app.players.red.burn_points[ii][1][0] * main_app.display_data.center_object.red]);
+            if (main_app.players.green.exist) {
+                offset = math.add(offset, [main_app.players.green.burn_points[ii][0][0] * main_app.display_data.center_object.green, main_app.players.green.burn_points[ii][1][0] * main_app.display_data.center_object.green]);
+            }
+            if (main_app.players.gray.exist) {
+                offset = math.add(offset, [main_app.players.gray.burn_points[ii][0][0] * main_app.display_data.center_object.gray, main_app.players.gray.burn_points[ii][1][0] * main_app.display_data.center_object.gray]);
+            }
             ctx.beginPath()
-            pixel_point = getScreenPixel(cnvs, point[0][0], point[1][0], main_app.display_data.axis_limit, main_app.display_data.center);
+            pixel_point = getScreenPixel(cnvs, point[0][0] - offset[0], point[1][0] - offset[1], main_app.display_data.axis_limit, main_app.display_data.center);
             ctx.arc(pixel_point[0], pixel_point[1], sat.display.point, 0, 2 * Math.PI);
             ctx.stroke();
             ctx.fill();
@@ -1035,6 +1106,38 @@ function drawArrow(ctx, pixelLocation, length = 30, angle = 0, color = 'rgba(255
         if (event.key === 'Shift') {
             main_app.display_data.shift_key = true;
         }
+        else if (event.key === '1') {
+            main_app.display_data.center_object_des = {
+                blue: 1,
+                red: 0,
+                green: 0,
+                gray: 0
+            }
+        }
+        else if (event.key === '2') {
+            main_app.display_data.center_object_des = {
+                blue: 0,
+                red: 1,
+                green: 0,
+                gray: 0
+            }
+        }
+        else if (event.key === '3') {
+            main_app.display_data.center_object_des = {
+                blue: 0,
+                red: 0,
+                green: 1,
+                gray: 0
+            }
+        }
+        else if (event.key === '4') {
+            main_app.display_data.center_object_des = {
+                blue: 0,
+                red: 0,
+                green: 0,
+                gray: 1
+            }
+        }
     })
     window.addEventListener('keyup', (event) => {
         if (event.key === 'Shift') {
@@ -1043,6 +1146,12 @@ function drawArrow(ctx, pixelLocation, length = 30, angle = 0, color = 'rgba(255
                 main_app.scenario_data.sat_data.origin = 'blue';
                 main_app.scenario_data.sat_data.target = 'red';
             }
+        }
+        main_app.display_data.center_object_des = {
+            blue: 0,
+            red: 0,
+            green: 0,
+            gray: 0
         }
     })
 })()
@@ -1061,6 +1170,10 @@ fetch('/api/games').then(res => res.json()).then(res => {
 
 
 function animation(time) {
+    // Set center object
+    for (player in main_app.players) {
+        main_app.display_data.center_object[player] += 0.2*(main_app.display_data.center_object_des[player] - main_app.display_data.center_object[player]);
+    }
     main_app.updateScreen();
     if (main_app.display_data.update_time && main_app.scenario_data.server) {
         let expected_time;
